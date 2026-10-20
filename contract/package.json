@@ -1,0 +1,29 @@
+{
+  "name": "@ageback/contract",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "near-sdk-js build src/contract.ts build/ageback.wasm",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "ava"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "near-sdk-js": "^2.0.0"
+  },
+  "devDependencies": {
+    "ava": "^6.4.1",
+    "near-workspaces": "^5.0.0",
+    "typescript": "^5.9.3"
+  },
+  "type": "module",
+  "ava": {
+    "files": [
+      "test/**/*.ava.js"
+    ],
+    "timeout": "2m",
+    "verbose": true
+  }
+}

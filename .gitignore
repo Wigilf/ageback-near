@@ -1,0 +1,4 @@
+node_modules/
+contract/build/
+.env
+*.tgz

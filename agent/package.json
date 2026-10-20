@@ -1,0 +1,17 @@
+{
+  "name": "@ageback/agent",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "agent": "node agent.js",
+    "setup": "node setup.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "near-api-js": "^5.1.1"
+  },
+  "type": "module"
+}

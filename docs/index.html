@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ageback Ledger</title>
+<meta name="description" content="Accounting view of every agent purchase settled through the Ageback rail — read straight from the contract." />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f5f2; --surface: #fcfcfb; --line: #e4e2dc; --line-strong: #cfcdc5;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #8a887f;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+    --good: #008300; --warn: #b86e00;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --line: #2c2c2a; --line-strong: #3d3d3a;
+      --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+      --good: #4caf50; --warn: #e0a040;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --line: #2c2c2a; --line-strong: #3d3d3a;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+    --good: #4caf50; --warn: #e0a040;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--sans); }
+  header { padding: 20px 16px 8px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h1 small { font-weight: 400; color: var(--ink-3); font-size: 13px; margin-left: 8px; }
+  .sub { color: var(--ink-2); margin: 0; }
+  main { max-width: 1200px; margin: 0 auto; padding: 8px 16px 48px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 16px; }
+  .bar input, .bar select, .bar button {
+    font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: 6px; padding: 7px 10px; min-height: 36px;
+  }
+  .bar input { min-width: 180px; }
+  .bar button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); cursor: pointer; }
+  .bar button { cursor: pointer; }
+  .muted { color: var(--ink-3); font-size: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .tile .k { font-size: 12px; color: var(--ink-2); }
+  .tile .v { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile .d { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--ink-2); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .axis { stroke: var(--line); }
+  .lbl { fill: var(--ink-2); font-size: 11px; font-family: var(--sans); }
+  .lbl.strong { fill: var(--ink); font-weight: 600; }
+  .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 9px; border-radius: 6px; font-size: 12px; display: none; z-index: 9; white-space: nowrap; }
+  .tabs { display: flex; gap: 4px; margin: 4px 0 8px; }
+  .tabs button { font: inherit; background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--surface); color: var(--ink-2); font-weight: 600; font-size: 12px; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+  td.m { font-family: var(--mono); font-size: 12px; }
+  tr.je td { color: var(--ink-2); background: color-mix(in oklab, var(--surface) 92%, var(--ink)); }
+  tr.je td:first-child { padding-left: 28px; }
+  .tag { display: inline-block; border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 7px; font-size: 11px; color: var(--ink-2); }
+  .verify { color: var(--s1); text-decoration: none; }
+  .empty { padding: 40px; text-align: center; color: var(--ink-3); }
+  .status { font-size: 12px; color: var(--ink-3); }
+  @media (max-width: 600px) { h1 small { display: block; margin: 2px 0 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ageback Ledger <small>every agent purchase, split at settlement, read from the contract</small></h1>
+  <p class="sub">Gross sale → paid to merchant + paid to the agent's human + protocol fee, all in one receipt. Every line verifiable on-chain.</p>
+</header>
+<main>
+  <div class="bar">
+    <select id="network"><option value="testnet">testnet</option><option value="mainnet">mainnet</option></select>
+    <input id="contract" placeholder="rail contract, e.g. ageback.testnet" />
+    <button class="primary" id="load">Load from chain</button>
+    <button id="demo">Load demo data</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Where each NEAR went, by merchant</h2>
+      <div class="legend"><span><i style="background:var(--s1)"></i>To merchant</span><span><i style="background:var(--s3)"></i>To human (cashback)</span><span><i style="background:var(--s4)"></i>Protocol fee</span></div>
+      <div id="byMerchant"></div>
+    </div>
+    <div class="card">
+      <h2>Volume by day</h2>
+      <div id="byDay"></div>
+    </div>
+    <div class="card">
+      <h2>Volume and rate by acquisition source</h2>
+      <div id="bySource"></div>
+    </div>
+    <div class="card">
+      <h2>Cashback paid, by human</h2>
+      <div id="byPayout"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <input id="q" placeholder="filter: merchant, agent, source, memo…" />
+    <input id="from" type="date" /><input id="to" type="date" />
+    <span class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-view="ledger">Ledger</button>
+      <button role="tab" aria-selected="false" data-view="journal">Journal entries</button>
+    </span>
+    <button id="csv">Export CSV</button>
+    <span class="muted" id="count"></span>
+  </div>
+  <div class="tablewrap"><table id="table"></table></div>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const YOCTO = 10n ** 24n;
+const near = (y, d = 4) => { const n = BigInt(y); const w = n / YOCTO; const f = (n % YOCTO).toString().padStart(24, "0").slice(0, d); return `${w.toLocaleString()}.${f}`; };
+const nearNum = (y) => Number(BigInt(y) / 10n ** 18n) / 1e6;
+const fmtDate = (ns) => new Date(Number(BigInt(ns) / 1_000_000n)).toISOString().slice(0, 10);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let receipts = [];      // all sales
+let contractId = "";
+let view = "ledger";
+
+// ------------------------------------------------------------------ RPC
+const RPC = { testnet: "https://rpc.testnet.near.org", mainnet: "https://rpc.mainnet.near.org" };
+async function viewCall(method, args = {}) {
+  const r = await fetch(RPC[$("#network").value], {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: {
+      request_type: "call_function", finality: "final", account_id: contractId, method_name: method,
+      args_base64: btoa(JSON.stringify(args)) } }),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.data ?? j.error.message);
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(j.result.result)));
+}
+
+async function loadChain() {
+  contractId = $("#contract").value.trim();
+  if (!contractId) return setStatus("enter a contract id");
+  try {
+    setStatus("reading config…");
+    const cfg = await viewCall("get_config");
+    const n = cfg.sale_count;
+    const out = [];
+    for (let i = 1; i <= n; i += 50) {
+      setStatus(`reading receipts ${i}/${n}…`);
+      out.push(...(await viewCall("get_receipts", { from: i, limit: 50 })));
+    }
+    receipts = out;
+    setStatus(`${receipts.length} receipts from ${contractId} · ${new Date().toLocaleTimeString()}`);
+    render();
+  } catch (e) { setStatus(`error: ${e.message}`); }
+}
+
+// ------------------------------------------------------------------ demo data
+function loadDemo() {
+  contractId = "ageback.testnet";
+  const merchants = [["pizzeria.testnet", 500], ["weatherapi.testnet", 300], ["gpu-rent.testnet", 800], ["dataset.testnet", 1000]];
+  const sources = { "claude-code": 1.4, "openclaw": 1.0, "": 1.0, "x402-client": 0.8 };
+  const agents = [["alice-agent.testnet", "alice.testnet", "erc8004:eip155:8453:1021"], ["bob-agent.testnet", "bob.testnet", "erc8004:eip155:1:77"], ["ops-bot.testnet", "ops-bot.testnet", ""]];
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  receipts = []; const now = Date.now();
+  for (let i = 1; i <= 140; i++) {
+    const [merchant, base] = merchants[Math.floor(rnd() * merchants.length)];
+    const src = Object.keys(sources)[Math.floor(rnd() * 4)];
+    const [agent, key, identity] = agents[Math.floor(rnd() * agents.length)];
+    const bps = src === "claude-code" ? Math.round(base * sources[src]) : base;
+    const price = BigInt(Math.round((0.5 + rnd() * 12) * 1e4)) * 10n ** 20n;
+    const commission = price * BigInt(bps) / 10000n, fee = commission / 10n, rebate = commission - fee;
+    const ts = BigInt(now - Math.floor(rnd() * 21 * 86400000)) * 1_000_000n;
+    receipts.push({ sale_id: i, block_timestamp: ts.toString(), agent, identity, source: src, commission_bps: bps, merchant,
+      price: price.toString(), merchant_share: (price - commission).toString(), protocol_fee: fee.toString(), rebate: rebate.toString(), rebate_to: key,
+      memo: ["api call", "2x margherita", "4h A100", "weather 7d", "parquet 1.2GB"][Math.floor(rnd() * 5)] });
+  }
+  receipts.sort((a, b) => Number(BigInt(a.block_timestamp) - BigInt(b.block_timestamp))).forEach((r, i) => (r.sale_id = i + 1));
+  setStatus("demo data (140 synthetic sales) — not from chain");
+  render();
+}
+
+// ------------------------------------------------------------------ aggregation
+const sum = (rows, f) => rows.reduce((a, r) => a + BigInt(r[f]), 0n);
+function filtered() {
+  const q = $("#q").value.toLowerCase();
+  const from = $("#from").value, to = $("#to").value;
+  return receipts.filter((r) => {
+    const d = fmtDate(r.block_timestamp);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (!q) return true;
+    return [r.merchant, r.agent, r.source, r.memo, r.identity, r.rebate_to, String(r.sale_id)].join(" ").toLowerCase().includes(q);
+  });
+}
+function groupBy(rows, f) { const m = new Map(); for (const r of rows) { const k = r[f] || "(none)"; if (!m.has(k)) m.set(k, []); m.get(k).push(r); } return m; }
+
+// ------------------------------------------------------------------ render
+function setStatus(s) { $("#status").textContent = s; }
+function tile(k, v, d = "") { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`; }
+
+function render() {
+  const rows = filtered();
+  const gross = sum(rows, "price"), rev = sum(rows, "merchant_share"), reb = sum(rows, "rebate"), fee = sum(rows, "protocol_fee");
+  const humans = new Set(rows.map((r) => r.rebate_to)).size, agents = new Set(rows.map((r) => r.agent)).size;
+  $("#tiles").innerHTML =
+    tile("Gross sales", `${near(gross, 2)} Ⓝ`, `${rows.length} receipts · ${agents} agents`) +
+    tile("Paid to merchants", `${near(rev, 2)} Ⓝ`, gross ? `${(Number(rev * 10000n / gross) / 100).toFixed(1)}% of gross` : "") +
+    tile("Cashback paid to humans", `${near(reb, 2)} Ⓝ`, gross ? `${(Number(reb * 10000n / gross) / 100).toFixed(2)}% effective · ${humans} recipients` : "") +
+    tile("Protocol fees", `${near(fee, 2)} Ⓝ`, "income to rail owner") +
+    tile("Settlement lag", "0 blocks", "paid in the same receipt as the sale");
+  $("#count").textContent = `${rows.length} of ${receipts.length}`;
+  drawByMerchant(rows); drawByDay(rows); drawBySource(rows); drawByPayout();
+  drawTable(rows);
+}
+
+// stacked horizontal bars
+function drawByMerchant(rows) {
+  const g = [...groupBy(rows, "merchant")].map(([k, rs]) => ({ k, a: nearNum(sum(rs, "merchant_share")), b: nearNum(sum(rs, "rebate")), c: nearNum(sum(rs, "protocol_fee")) }))
+    .sort((x, y) => (y.a + y.b + y.c) - (x.a + x.b + x.c)).slice(0, 8);
+  if (!g.length) return ($("#byMerchant").innerHTML = `<div class="empty">no data</div>`);
+  const W = 520, L = 150, R = 60, rowH = 26, H = g.length * rowH + 8, max = Math.max(...g.map((d) => d.a + d.b + d.c));
+  const x = (v) => L + (v / max) * (W - L - R);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Split by merchant">`;
+  g.forEach((d, i) => {
+    const y = i * rowH + 4; let cx = L;
+    s += `<text class="lbl strong" x="${L - 8}" y="${y + 14}" text-anchor="end">${esc(d.k.length > 22 ? d.k.slice(0, 21) + "…" : d.k)}</text>`;
+    [["a", "--s1", "Merchant revenue"], ["b", "--s3", "Rebate"], ["c", "--s4", "Protocol fee"]].forEach(([f, c, name]) => {
+      const w = Math.max(0, x(d[f]) - L - 2); if (w <= 0) return;
+      s += `<rect x="${cx}" y="${y}" width="${w}" height="18" rx="3" fill="var(${c})" data-tip="${esc(d.k)} · ${name}: ${d[f].toFixed(2)} Ⓝ"/>`; cx += w + 2;
+    });
+    s += `<text class="lbl" x="${cx + 6}" y="${y + 14}">${(d.a + d.b + d.c).toFixed(1)}</text>`;
+  });
+  $("#byMerchant").innerHTML = s + "</svg>";
+}
+
+// daily line with crosshair tooltip
+function drawByDay(rows) {
+  const g = [...groupBy(rows.map((r) => ({ ...r, day: fmtDate(r.block_timestamp) })), "day")].map(([k, rs]) => ({ k, v: nearNum(sum(rs, "price")), n: rs.length })).sort((a, b) => a.k.localeCompare(b.k));
+  if (g.length < 2) return ($("#byDay").innerHTML = `<div class="empty">need ≥ 2 days of data</div>`);
+  const W = 520, H = 180, L = 44, R = 12, T = 10, B = 28, max = Math.max(...g.map((d) => d.v)) || 1;
+  const x = (i) => L + (i / (g.length - 1)) * (W - L - R), y = (v) => T + (1 - v / max) * (H - T - B);
+  const path = g.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(d.v).toFixed(1)}`).join(" ");
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Volume by day">`;
+  [0, 0.5, 1].forEach((t) => { s += `<line class="axis" x1="${L}" x2="${W - R}" y1="${y(max * t)}" y2="${y(max * t)}"/><text class="lbl" x="${L - 6}" y="${y(max * t) + 4}" text-anchor="end">${(max * t).toFixed(0)}</text>`; });
+  s += `<path d="${path}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>`;
+  g.forEach((d, i) => { s += `<circle cx="${x(i)}" cy="${y(d.v)}" r="9" fill="transparent" data-tip="${d.k}: ${d.v.toFixed(2)} Ⓝ · ${d.n} sales"/>`; });
+  [0, Math.floor((g.length - 1) / 2), g.length - 1].forEach((i) => { s += `<text class="lbl" x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? "start" : i === g.length - 1 ? "end" : "middle"}">${g[i].k.slice(5)}</text>`; });
+  $("#byDay").innerHTML = s + "</svg>";
+}
+
+// source bars with rate label
+function drawBySource(rows) {
+  const g = [...groupBy(rows, "source")].map(([k, rs]) => ({ k, v: nearNum(sum(rs, "price")), n: rs.length, rate: rs.reduce((a, r) => a + r.commission_bps, 0) / rs.length })).sort((a, b) => b.v - a.v).slice(0, 8);
+  if (!g.length) return ($("#bySource").innerHTML = `<div class="empty">no data</div>`);
+  const W = 520, L = 120, R = 110, rowH = 26, H = g.length * rowH + 8, max = Math.max(...g.map((d) => d.v));
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Volume by source">`;
+  g.forEach((d, i) => {
+    const y = i * rowH + 4, w = (d.v / max) * (W - L - R);
+    s += `<text class="lbl strong" x="${L - 8}" y="${y + 14}" text-anchor="end">${esc(d.k)}</text>
+          <rect x="${L}" y="${y}" width="${Math.max(2, w)}" height="18" rx="3" fill="var(--s2)" data-tip="${esc(d.k)}: ${d.v.toFixed(2)} Ⓝ over ${d.n} sales"/>
+          <text class="lbl" x="${L + w + 6}" y="${y + 14}">${d.v.toFixed(1)} Ⓝ · avg ${(d.rate / 100).toFixed(1)}%</text>`;
+  });
+  $("#bySource").innerHTML = s + "</svg>";
+}
+
+function drawByPayout() {
+  const rows = filtered();
+  const g = [...groupBy(rows, "rebate_to")].map(([k, rs]) => ({ k, v: nearNum(sum(rs, "rebate")), n: rs.length })).sort((a, b) => b.v - a.v).slice(0, 8);
+  if (!g.length) return ($("#byPayout").innerHTML = `<div class="empty">no data</div>`);
+  const W = 520, L = 150, R = 90, rowH = 26, H = g.length * rowH + 8, max = Math.max(...g.map((d) => d.v)) || 1;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cashback paid by human">`;
+  g.forEach((d, i) => {
+    const y = i * rowH + 4, w = (d.v / max) * (W - L - R);
+    s += `<text class="lbl strong" x="${L - 8}" y="${y + 14}" text-anchor="end">${esc(d.k.length > 22 ? d.k.slice(0, 21) + "…" : d.k)}</text>
+          <rect x="${L}" y="${y}" width="${Math.max(2, w)}" height="18" rx="3" fill="var(--s3)" data-tip="${esc(d.k)}: ${d.v.toFixed(4)} Ⓝ over ${d.n} purchases"/>
+          <text class="lbl" x="${L + w + 6}" y="${y + 14}">${d.v.toFixed(2)} Ⓝ · ${d.n}</text>`;
+  });
+  $("#byPayout").innerHTML = s + "</svg>";
+}
+
+function verifyCmd(r) { return `near view ${contractId} get_receipt '{"sale_id":${r.sale_id}}'`; }
+
+function drawTable(rows) {
+  const t = $("#table");
+  if (!rows.length) return (t.innerHTML = `<tr><td class="empty">No receipts. Load from chain or use demo data.</td></tr>`);
+  const sorted = [...rows].sort((a, b) => b.sale_id - a.sale_id).slice(0, 500);
+  if (view === "ledger") {
+    t.innerHTML = `<thead><tr><th>#</th><th>Date</th><th>Merchant</th><th>Agent</th><th>Identity</th><th>Source</th><th class="n">Rate</th><th class="n">Gross Ⓝ</th><th class="n">To merchant Ⓝ</th><th class="n">Cashback Ⓝ</th><th class="n">Fee Ⓝ</th><th>Cashback to</th><th>Memo</th><th></th></tr></thead><tbody>` +
+      sorted.map((r) => `<tr><td class="m">${r.sale_id}</td><td>${fmtDate(r.block_timestamp)}</td><td>${esc(r.merchant)}</td><td>${esc(r.agent)}</td><td class="m">${esc(r.identity || "—")}</td><td>${r.source ? `<span class="tag">${esc(r.source)}</span>` : "—"}</td><td class="n">${(r.commission_bps / 100).toFixed(2)}%</td><td class="n">${near(r.price)}</td><td class="n">${near(r.merchant_share)}</td><td class="n">${near(r.rebate)}</td><td class="n">${near(r.protocol_fee)}</td><td class="m">${esc(r.rebate_to)}</td><td>${esc(r.memo ?? "")}</td><td><a class="verify" href="#" title="${esc(verifyCmd(r))}" data-copy="${esc(verifyCmd(r))}">verify ↗</a></td></tr>`).join("") + "</tbody>";
+  } else {
+    // double-entry view: one journal entry per sale, from the rail's point of view
+    t.innerHTML = `<thead><tr><th>Entry</th><th>Account</th><th class="n">Debit Ⓝ</th><th class="n">Credit Ⓝ</th><th>Reference</th></tr></thead><tbody>` +
+      sorted.map((r) => `
+        <tr><td class="m">JE-${r.sale_id}</td><td>${fmtDate(r.block_timestamp)} · ${esc(r.merchant)} ← ${esc(r.agent)}</td><td class="n"></td><td class="n"></td><td class="m">sale ${r.sale_id}</td></tr>
+        <tr class="je"><td>Cash (NEAR received)</td><td></td><td class="n">${near(r.price)}</td><td class="n"></td><td></td></tr>
+        <tr class="je"><td>Paid to merchant — ${esc(r.merchant)}</td><td></td><td class="n"></td><td class="n">${near(r.merchant_share)}</td><td class="muted">same receipt</td></tr>
+        <tr class="je"><td>Cashback paid — ${esc(r.rebate_to)}</td><td></td><td class="n"></td><td class="n">${near(r.rebate)}</td><td class="muted">same receipt</td></tr>
+        <tr class="je"><td>Protocol fee income</td><td></td><td class="n"></td><td class="n">${near(r.protocol_fee)}</td><td></td></tr>`).join("") + "</tbody>";
+  }
+}
+
+function exportCsv() {
+  const rows = filtered();
+  const head = ["sale_id", "date", "block_timestamp_ns", "merchant", "agent", "identity", "source", "commission_bps", "gross_near", "merchant_share_near", "rebate_near", "protocol_fee_near", "gross_yocto", "merchant_share_yocto", "rebate_yocto", "protocol_fee_yocto", "cashback_to", "memo", "contract"];
+  const lines = rows.map((r) => [r.sale_id, fmtDate(r.block_timestamp), r.block_timestamp, r.merchant, r.agent, r.identity, r.source, r.commission_bps, near(r.price, 6), near(r.merchant_share, 6), near(r.rebate, 6), near(r.protocol_fee, 6), r.price, r.merchant_share, r.rebate, r.protocol_fee, r.rebate_to, r.memo ?? "", contractId]
+    .map((v) => `"${String(v).replace(/"/g, '""').replace(/,/g, "")}"`).join(","));
+  const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `ageback-ledger-${contractId || "demo"}-${new Date().toISOString().slice(0, 10)}.csv` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ------------------------------------------------------------------ wiring
+const tip = $("#tip");
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest?.("[data-tip]");
+  if (!t) return (tip.style.display = "none");
+  tip.textContent = t.dataset.tip; tip.style.display = "block";
+  tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 12 + "px";
+});
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.("[data-copy]");
+  if (a) { e.preventDefault(); navigator.clipboard?.writeText(a.dataset.copy); a.textContent = "copied"; setTimeout(() => (a.textContent = "verify ↗"), 1200); }
+});
+["#q", "#from", "#to"].forEach((s) => $(s).addEventListener("input", render));
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", x === b)); view = b.dataset.view; render(); }));
+$("#load").addEventListener("click", loadChain);
+$("#demo").addEventListener("click", loadDemo);
+$("#csv").addEventListener("click", exportCsv);
+const p = new URLSearchParams(location.search);
+if (p.get("contract")) { $("#contract").value = p.get("contract"); $("#network").value = p.get("network") ?? "testnet"; loadChain(); } else loadDemo();
+</script>
+</body>
+</html>
